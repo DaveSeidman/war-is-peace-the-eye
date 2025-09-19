@@ -1,0 +1,40 @@
+@use '../../index.scss' as src;
+
+.eye {
+  position: absolute;
+  aspect-ratio: 1;
+  height: 90vh;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: url('../../assets/images/eye.svg');
+  background-repeat: no-repeat;
+  background-size: contain;
+
+  &-iris, &-pupil {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    height: 56vh;
+    aspect-ratio: 1;
+    background: src.$blue;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+  }
+
+  &-pupil {
+    width: 0;
+    height: 0;
+
+    &-inner {
+      position: absolute;
+      top: 0;
+      left: 0;
+      background: black;
+      height: 30vh;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      transition: transform .5s;
+    }
+  }
+}
