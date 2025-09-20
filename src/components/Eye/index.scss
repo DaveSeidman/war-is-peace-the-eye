@@ -20,11 +20,14 @@
     background: src.$blue;
     transform: translate(-50%, -50%);
     border-radius: 50%;
+    overflow: hidden;
   }
 
   &-pupil {
-    width: 0;
-    height: 0;
+    top: 17vh;
+    left: 17vh;
+    background: none;
+    transition: transform .25s cubic-bezier(.4, 0, .2, 1);
 
     &-inner {
       position: absolute;
@@ -34,7 +37,8 @@
       height: 30vh;
       aspect-ratio: 1;
       border-radius: 50%;
-      transition: transform .5s;
+      transform: translate(-50%, -50%);
+      transition: top .5s cubic-bezier(.1, .4, .2, 1), left .5s cubic-bezier(.1, .4, .2, 1);
     }
   }
 }

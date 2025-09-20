@@ -8,14 +8,16 @@ export default function Eye({ pointers }) {
   const moveTimer = useRef();
   const [position, setPosition] = useState({
     x: .5,
-    y: .5
+    y: .5,
+    rot: 0,
   });
 
   const move = () => {
     console.log('move now')
     setPosition({
-      x: Math.random() * .1,
-      y: Math.random() * .1
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      rot: Math.random() * 360,
     });
     moveTimer.current = setTimeout(move, Math.random() * 1000 + 1000);
   }
@@ -30,10 +32,16 @@ export default function Eye({ pointers }) {
   return (
     <div className="eye">
       <div className="eye-iris"></div>
-      <div className="eye-pupil">
+      <div className="eye-pupil"
+        style={{
+          transform: `rotate(${position.rot}deg)`
+        }}
+      >
         <div className="eye-pupil-inner"
           style={{
-            transform: `translate(${position.x * 100}%, ${position.y * 100}%)`
+            top: `${position.y}%`,
+            left: `${position.x}%`
+            // transform: `translate(${position.x * 100}%, ${position.y * 100}%)`
           }}
         ></div>
       </div>
