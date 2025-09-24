@@ -7,7 +7,7 @@ import { useControls, Leva } from 'leva';
 import './index.scss';
 
 // import your demo video
-import demoVideo from './assets/videos/demo.mp4';
+import demoVideo from './assets/videos/demo2.mp4';
 
 const App = () => {
   const pointers = useRef({});
@@ -53,11 +53,11 @@ const App = () => {
 
     const faceDetector = new FaceDetection({
       locateFile: (file) =>
-        `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`,
+        `mediapipe/models/${file}`,
     });
     faceDetector.setOptions({
       model: 'short',
-      minDetectionConfidence: 0.5,
+      minDetectionConfidence: 0.33,
     });
 
     faceDetector.onResults((results) => {

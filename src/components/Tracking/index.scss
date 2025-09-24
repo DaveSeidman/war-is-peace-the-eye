@@ -3,6 +3,7 @@
   bottom: 10px;
   left: 10px;
   background: black;
-  border: 1px solid lime;
-  z-index: 1000;
+  transform: scale(.75);
+  transform-origin: bottom left;
+  // z-index: 1000;
 }

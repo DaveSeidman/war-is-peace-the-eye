@@ -18,7 +18,7 @@ export default function Tracking({ faces, videoRef }) {
 
       // Draw detected face markers
       ctx.strokeStyle = 'lime';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 5;
       faces.forEach((f) => {
         const x = f.x * canvas.width;
         const y = f.y * canvas.height;
