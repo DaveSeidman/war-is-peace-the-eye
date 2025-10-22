@@ -3,7 +3,7 @@
 .eye {
   position: absolute;
   aspect-ratio: 1;
-  height: 90vh;
+  height: 70vh;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
@@ -15,7 +15,7 @@
     position: absolute;
     top: 50%;
     left: 50%;
-    height: 56vh;
+    height: 42vh;
     aspect-ratio: 1;
     background: src.$blue;
     transform: translate(-50%, -50%);
@@ -31,13 +31,14 @@
     // outline: 2px solid pink;
     background: none;
     transition: transform .25s cubic-bezier(.4, 0, .2, 1);
+    overflow: hidden;
 
     &-inner {
       position: absolute;
       top: 0;
       left: 0;
       background: black;
-      height: 30vh;
+      height: 22vh;
       aspect-ratio: 1;
       border-radius: 50%;
       transform: translate(-50%, -50%);

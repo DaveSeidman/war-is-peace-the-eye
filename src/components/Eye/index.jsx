@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import './index.scss';
 
-export default function Eye({ faces }) {
+export default function Eye({ faces, target }) {
   const [position, setPosition] = useState({ x: 50, y: 50 });
   const faceIndex = useRef(0);
   const faceTimer = useRef();
@@ -30,15 +30,6 @@ export default function Eye({ faces }) {
           y = target.y * 100;
         }
       }
-      //  else {
-      //   // fallback: follow pointer
-      //   const ids = Object.keys(pointers.current);
-      //   if (ids.length > 0) {
-      //     const p = pointers.current[ids[0]];
-      //     x = (p.x / window.innerWidth) * 100;
-      //     y = (p.y / window.innerHeight) * 100;
-      //   }
-      // }
 
       setPosition({ x, y });
       requestAnimationFrame(update);
@@ -53,8 +44,8 @@ export default function Eye({ faces }) {
         <div
           className="eye-pupil-inner"
           style={{
-            left: `${position.x}%`,
-            top: `${position.y}%`,
+            left: `${target?.x * 100}%`,
+            top: `${target?.y * 100}%`,
             transform: `translate(-50%, -50%)`,
           }}
         ></div>

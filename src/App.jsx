@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import Eye from './components/Eye'
-import demoVideo from "./assets/videos/demo3.mp4";
-import foregroundImage from './assets/images/foreground.png';
-import { ObjectDetector, FilesetResolver } from "@mediapipe/tasks-vision";
+import Eye from "./components/Eye";
+import foregroundImage from "./assets/images/foreground.png";
+import { ObjectDetector, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.2";
 import "./index.scss";
 
 const App = () => {
@@ -10,11 +9,16 @@ const App = () => {
   const canvasRef = useRef(null);
   const ctxRef = useRef(null);
   const detectorRef = useRef(null);
-  const [people, setPeople] = useState([]);
+  const streamRef = useRef(null);
 
-  // Persistent color map
+  const [people, setPeople] = useState([]);
+  const [target, setTarget] = useState(null);
+
   const colorMap = useRef({});
   const prevPeople = useRef([]);
+  const lastSeen = useRef({});
+  const bounceIndex = useRef(0);
+  const lastBounceTime = useRef(0);
 
   const randomColor = () => {
     const r = Math.floor(Math.random() * 205 + 50);
@@ -37,41 +41,55 @@ const App = () => {
   };
 
   useEffect(() => {
-    const initDetector = async () => {
+    let isActive = true;
+
+    const init = async () => {
+      // ✅ Initialize MediaPipe
       const vision = await FilesetResolver.forVisionTasks(
         "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.2/wasm"
       );
-
-      detectorRef.current = await ObjectDetector.createFromOptions(vision, {
+      const detector = await ObjectDetector.createFromOptions(vision, {
         baseOptions: {
           modelAssetPath:
             "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float32/1/efficientdet_lite0.tflite",
           delegate: "GPU",
         },
-        scoreThreshold: 0.0,
+        categoryAllowlist: ["person"],
+        scoreThreshold: 0.35,
         maxResults: 10,
         runningMode: "VIDEO",
       });
 
+      if (!isActive) return;
+      detectorRef.current = detector;
       console.log("✅ Object detector initialized");
-      startVideo();
+
+      startCamera();
     };
 
-    const startVideo = () => {
-      const vid = videoRef.current;
-      vid.src = demoVideo;
-      vid.loop = true;
-      vid.muted = true;
-      vid.autoplay = true;
-      vid.playsInline = true;
-      vid.addEventListener("loadeddata", () => {
-        const canvas = canvasRef.current;
-        canvas.width = vid.videoWidth;
-        canvas.height = vid.videoHeight;
-        ctxRef.current = canvas.getContext("2d");
-        vid.play();
-        vid.requestVideoFrameCallback(processFrame);
-      });
+    const startCamera = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 640 },
+            height: { ideal: 360 },
+            facingMode: "user",
+          },
+        });
+        streamRef.current = stream;
+        const vid = videoRef.current;
+        vid.srcObject = stream;
+        vid.onloadedmetadata = () => {
+          const canvas = canvasRef.current;
+          canvas.width = vid.videoWidth;
+          canvas.height = vid.videoHeight;
+          ctxRef.current = canvas.getContext("2d");
+          vid.play();
+          vid.requestVideoFrameCallback(processFrame);
+        };
+      } catch (err) {
+        console.error("Camera access error:", err);
+      }
     };
 
     const processFrame = async (now) => {
@@ -89,42 +107,33 @@ const App = () => {
       if (result?.detections) {
         result.detections.forEach((d) => {
           const category = d.categories[0];
-          if (!category || category.categoryName !== "person" || category.score < 0.5) return;
+          if (!category) return;
 
           const box = d.boundingBox;
           const cx = box.originX + box.width / 2;
           const cy = box.originY + box.height / 2;
-
-          // Distance metric (0–1): ratio of box height to video height
           const distance = Math.min(1, Math.max(0, box.height / vid.videoHeight));
 
-          // Try to find a matching person from the previous frame
           let id = matchToPrevious(cx, cy, prevPeople.current);
-
-          // If the matched ID is already used this frame, or no match found → make a new one
-          if (!id || usedIds.has(id)) {
-            id = `person_${crypto.randomUUID().slice(0, 8)}`;
-          }
-
+          if (!id || usedIds.has(id)) id = `person_${crypto.randomUUID().slice(0, 8)}`;
           usedIds.add(id);
 
           if (!colorMap.current[id]) colorMap.current[id] = randomColor();
           const color = colorMap.current[id];
 
-          // Draw bounding box
+          // Bounding box
           ctx.lineWidth = 3;
           ctx.strokeStyle = color;
           ctx.strokeRect(box.originX, box.originY, box.width, box.height);
 
-          // Draw label
+          // ID label
           ctx.font = "16px sans-serif";
           ctx.textBaseline = "top";
           ctx.textAlign = "left";
-          const labelText = id;
           ctx.fillStyle = "white";
-          ctx.fillText(labelText, box.originX + 4, box.originY - 18);
+          ctx.fillText(id, box.originX + 4, box.originY - 18);
 
-          // Distance label at center
+          // Distance label
           ctx.font = "18px monospace";
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
@@ -133,23 +142,73 @@ const App = () => {
 
           newPeople.push({
             id,
-            x: cx,
-            y: cy,
-            label: "person",
-            score: category.score,
-            color,
+            // normalized coordinates (0–1)
+            x: cx / vid.videoWidth,
+            y: cy / vid.videoHeight,
             distance,
+            color,
+            score: category.score,
           });
         });
       }
 
-
       setPeople(newPeople);
       prevPeople.current = newPeople;
+
+      const nowMs = performance.now();
+      newPeople.forEach((p) => {
+        lastSeen.current[p.id] = nowMs;
+      });
+
+      // Target selection logic (rotating between visible people)
+      let newTarget = null;
+
+      if (newPeople.length === 0) {
+        newTarget = null;
+      } else if (newPeople.length === 1) {
+        newTarget = newPeople[0];
+      } else {
+        // Sort by closeness (largest distance = closer to camera)
+        const sorted = [...newPeople].sort((a, b) => b.distance - a.distance);
+
+        const nowMs = performance.now();
+        if (nowMs - lastBounceTime.current > 1000) { // every 1 second
+          bounceIndex.current = (bounceIndex.current + 1) % sorted.length;
+          lastBounceTime.current = nowMs;
+        }
+
+        newTarget = sorted[bounceIndex.current];
+      }
+
+      setTarget(newTarget);
+
+      setTarget(newTarget);
+
+      // ✅ Draw large red circle on target
+      if (newTarget && ctx) {
+        const absX = newTarget.x * ctx.canvas.width;
+        const absY = newTarget.y * ctx.canvas.height;
+        ctx.beginPath();
+        ctx.arc(absX, absY, 60, 0, Math.PI * 2);
+        ctx.lineWidth = 6;
+        ctx.strokeStyle = "rgba(255, 0, 0, 0.9)";
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = "rgba(255, 0, 0, 0.7)";
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+
       vid.requestVideoFrameCallback(processFrame);
     };
 
-    initDetector();
+    init();
+
+    return () => {
+      isActive = false;
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+      }
+    };
   }, []);
 
   return (
@@ -160,14 +219,18 @@ const App = () => {
         <p>Detected {people.length} people</p>
         {people.map((p) => (
           <p key={p.id} style={{ color: p.color }}>
-            {p.label} ({Math.round(p.score * 100)}%) – distance: {p.distance.toFixed(2)}
+            {p.label ?? "person"} ({Math.round(p.score * 100)}%) – dist: {p.distance.toFixed(2)}
           </p>
         ))}
+        {target && (
+          <p style={{ color: target.color, fontWeight: "bold" }}>
+            🎯 Target: {target.id} (dist {target.distance.toFixed(2)})
+          </p>
+        )}
       </div>
-      <Eye
-        faces={people}
-      />
-      <img className="foreground" src={foregroundImage}></img>
+
+      <Eye faces={people} target={target} />
+      <img className="foreground" src={foregroundImage} alt="overlay" />
       <canvas className="canvas" ref={canvasRef}></canvas>
     </div>
   );
