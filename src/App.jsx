@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
-import "./index.scss";
+import Eye from './components/Eye'
 import demoVideo from "./assets/videos/demo3.mp4";
-
-import {
-  ObjectDetector,
-  FilesetResolver,
-} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.2";
+import foregroundImage from './assets/images/foreground.png';
+import { ObjectDetector, FilesetResolver } from "@mediapipe/tasks-vision";
+import "./index.scss";
 
 const App = () => {
   const videoRef = useRef(null);
@@ -157,7 +155,6 @@ const App = () => {
   return (
     <div className="app">
       <video ref={videoRef} style={{ display: "none" }} playsInline></video>
-      <canvas ref={canvasRef} style={{ width: "100%", maxWidth: "800px" }}></canvas>
 
       <div className="debug">
         <p>Detected {people.length} people</p>
@@ -167,6 +164,11 @@ const App = () => {
           </p>
         ))}
       </div>
+      <Eye
+        faces={people}
+      />
+      <img className="foreground" src={foregroundImage}></img>
+      <canvas className="canvas" ref={canvasRef}></canvas>
     </div>
   );
 };
