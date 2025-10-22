@@ -16,11 +16,26 @@ const App = () => {
 
   // Persistent color map
   const colorMap = useRef({});
+  const prevPeople = useRef([]);
+
   const randomColor = () => {
     const r = Math.floor(Math.random() * 205 + 50);
     const g = Math.floor(Math.random() * 205 + 50);
     const b = Math.floor(Math.random() * 205 + 50);
     return `rgba(${r},${g},${b},0.9)`;
+  };
+
+  const matchToPrevious = (cx, cy, prevList, maxDistance = 100) => {
+    let best = null;
+    let bestDist = maxDistance;
+    for (const p of prevList) {
+      const dist = Math.hypot(cx - p.x, cy - p.y);
+      if (dist < bestDist) {
+        best = p;
+        bestDist = dist;
+      }
+    }
+    return best ? best.id : null;
   };
 
   useEffect(() => {
@@ -70,49 +85,56 @@ const App = () => {
       ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
       ctx.drawImage(vid, 0, 0, ctx.canvas.width, ctx.canvas.height);
 
-      const detectedPeople = [];
+      const newPeople = [];
+      const usedIds = new Set();
 
       if (result?.detections) {
-        result.detections.forEach((d, index) => {
+        result.detections.forEach((d) => {
           const category = d.categories[0];
-          if (!category || category.categoryName !== "person" || category.score < .5) return;
+          if (!category || category.categoryName !== "person" || category.score < 0.5) return;
 
           const box = d.boundingBox;
-          const id = `person_${index}`;
-          if (!colorMap.current[id]) colorMap.current[id] = randomColor();
-          const color = colorMap.current[id];
+          const cx = box.originX + box.width / 2;
+          const cy = box.originY + box.height / 2;
 
           // Distance metric (0–1): ratio of box height to video height
           const distance = Math.min(1, Math.max(0, box.height / vid.videoHeight));
+
+          // Try to find a matching person from the previous frame
+          let id = matchToPrevious(cx, cy, prevPeople.current);
+
+          // If the matched ID is already used this frame, or no match found → make a new one
+          if (!id || usedIds.has(id)) {
+            id = `person_${crypto.randomUUID().slice(0, 8)}`;
+          }
+
+          usedIds.add(id);
+
+          if (!colorMap.current[id]) colorMap.current[id] = randomColor();
+          const color = colorMap.current[id];
 
           // Draw bounding box
           ctx.lineWidth = 3;
           ctx.strokeStyle = color;
           ctx.strokeRect(box.originX, box.originY, box.width, box.height);
 
-          // Label background
+          // Draw label
           ctx.font = "16px sans-serif";
           ctx.textBaseline = "top";
-          ctx.textAlign = 'left'
-          const labelText = `person (${Math.round(category.score * 100)}%)`;
-          // const textWidth = ctx.measureText(labelText).width + 8;
-          const textHeight = 20;
-
-          // ctx.fillStyle = "rgba(0,0,0,0.6)";
-          // ctx.fillRect(box.originX, box.originY - textHeight, textWidth, textHeight);
-          // ctx.fillStyle = "white";
-          ctx.fillText(labelText, box.originX + 4, box.originY - textHeight + 2);
+          ctx.textAlign = "left";
+          const labelText = id;
+          ctx.fillStyle = "white";
+          ctx.fillText(labelText, box.originX + 4, box.originY - 18);
 
           // Distance label at center
-          const cx = box.originX + box.width / 2;
-          const cy = box.originY + box.height / 2;
           ctx.font = "18px monospace";
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           ctx.fillStyle = color;
           ctx.fillText(distance.toFixed(2), cx, cy);
 
-          detectedPeople.push({
+          newPeople.push({
+            id,
             x: cx,
             y: cy,
             label: "person",
@@ -123,7 +145,9 @@ const App = () => {
         });
       }
 
-      setPeople(detectedPeople);
+
+      setPeople(newPeople);
+      prevPeople.current = newPeople;
       vid.requestVideoFrameCallback(processFrame);
     };
 
@@ -137,8 +161,8 @@ const App = () => {
 
       <div className="debug">
         <p>Detected {people.length} people</p>
-        {people.map((p, i) => (
-          <p key={i} style={{ color: p.color }}>
+        {people.map((p) => (
+          <p key={p.id} style={{ color: p.color }}>
             {p.label} ({Math.round(p.score * 100)}%) – distance: {p.distance.toFixed(2)}
           </p>
         ))}
