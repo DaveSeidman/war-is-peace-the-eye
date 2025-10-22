@@ -2,8 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import Eye from './components/Eye';
 import Tracking from './components/Tracking';
 import { FaceDetection } from '@mediapipe/face_detection';
-import { Camera } from '@mediapipe/camera_utils';
-import { useControls, Leva } from 'leva';
 import './index.scss';
 import demoVideo from './assets/videos/demo3.mp4';
 
@@ -65,7 +63,6 @@ const App = () => {
       </div>
       <Eye faces={faces} />
       <Tracking faces={faces} videoRef={videoRef} />
-      <Leva collapsed />
     </div>
   );
 };
