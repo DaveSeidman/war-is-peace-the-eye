@@ -24,8 +24,11 @@
   }
 
   &-pupil {
-    top: 17vh;
-    left: 17vh;
+    top: 50%;
+    left: 50%;
+    width: 56vh;
+    height: 56vh;
+    // outline: 2px solid pink;
     background: none;
     transition: transform .25s cubic-bezier(.4, 0, .2, 1);
 

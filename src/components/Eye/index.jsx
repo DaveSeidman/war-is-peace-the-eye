@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import './index.scss';
 
-export default function Eye({ pointers, faces }) {
+export default function Eye({ faces }) {
   const [position, setPosition] = useState({ x: 50, y: 50 });
   const faceIndex = useRef(0);
   const faceTimer = useRef();
+  // const [people, setPeople] = useState([])
 
   useEffect(() => {
     if (faces.length <= 1) return;
@@ -28,21 +29,22 @@ export default function Eye({ pointers, faces }) {
           x = target.x * 100;
           y = target.y * 100;
         }
-      } else {
-        // fallback: follow pointer
-        const ids = Object.keys(pointers.current);
-        if (ids.length > 0) {
-          const p = pointers.current[ids[0]];
-          x = (p.x / window.innerWidth) * 100;
-          y = (p.y / window.innerHeight) * 100;
-        }
       }
+      //  else {
+      //   // fallback: follow pointer
+      //   const ids = Object.keys(pointers.current);
+      //   if (ids.length > 0) {
+      //     const p = pointers.current[ids[0]];
+      //     x = (p.x / window.innerWidth) * 100;
+      //     y = (p.y / window.innerHeight) * 100;
+      //   }
+      // }
 
       setPosition({ x, y });
       requestAnimationFrame(update);
     };
     requestAnimationFrame(update);
-  }, [faces, pointers]);
+  }, [faces]);
 
   return (
     <div className="eye">

@@ -5,59 +5,19 @@ import { FaceDetection } from '@mediapipe/face_detection';
 import { Camera } from '@mediapipe/camera_utils';
 import { useControls, Leva } from 'leva';
 import './index.scss';
-
-// import your demo video
-import demoVideo from './assets/videos/demo2.mp4';
+import demoVideo from './assets/videos/demo3.mp4';
 
 const App = () => {
-  const pointers = useRef({});
   const [faces, setFaces] = useState([]);
   const videoRef = useRef(null);
 
-  // Leva dropdown
-  const { inputSource } = useControls({
-    inputSource: {
-      value: 'video',
-      options: ['video', 'camera'],
-      label: 'Input Source',
-    },
-  });
-
-  // Pointer handlers
-  const pointerDown = (e) => {
-    pointers.current[e.pointerId] = { x: e.clientX, y: e.clientY };
-  };
-  const pointerMove = (e) => {
-    if (pointers.current[e.pointerId]) {
-      pointers.current[e.pointerId] = { x: e.clientX, y: e.clientY };
-    }
-  };
-  const pointerUp = (e) => {
-    delete pointers.current[e.pointerId];
-  };
-
-  useEffect(() => {
-    addEventListener('pointerdown', pointerDown);
-    addEventListener('pointermove', pointerMove);
-    addEventListener('pointerup', pointerUp);
-    return () => {
-      removeEventListener('pointerdown', pointerDown);
-      removeEventListener('pointermove', pointerMove);
-      removeEventListener('pointerup', pointerUp);
-    };
-  }, []);
-
-  // Setup MediaPipe Face Detection
   useEffect(() => {
     if (!videoRef.current) return;
 
-    const faceDetector = new FaceDetection({
-      locateFile: (file) =>
-        `mediapipe/models/${file}`,
-    });
+    const faceDetector = new FaceDetection({ locateFile: (file) => `mediapipe/models/${file}` });
     faceDetector.setOptions({
       model: 'short',
-      minDetectionConfidence: 0.33,
+      minDetectionConfidence: 0.2,
     });
 
     faceDetector.onResults((results) => {
@@ -75,35 +35,22 @@ const App = () => {
       setFaces(newFaces);
     });
 
-    if (inputSource === 'camera') {
-      const camera = new Camera(videoRef.current, {
-        onFrame: async () => {
-          await faceDetector.send({ image: videoRef.current });
-        },
-        width: 640,
-        height: 480,
+    videoRef.current.src = demoVideo;
+    videoRef.current.loop = true;
+    videoRef.current.autoPlay = true;
+    videoRef.current.playsInline = true;
+    videoRef.current.muted = true;
+    videoRef.current.play();
+
+    const processFrame = (now, metadata) => {
+      faceDetector.send({ image: videoRef.current }).then(results => {
+        videoRef.current.requestVideoFrameCallback(processFrame);
       });
-      camera.start();
-      return () => {
-        camera.stop();
-      };
-    } else if (inputSource === 'video') {
-      videoRef.current.src = demoVideo;
-      videoRef.current.loop = true;
-      videoRef.current.autoPlay = true;
-      videoRef.current.playsInline = true;
-      videoRef.current.muted = true;
-
-      videoRef.current.play();
-
-      const processFrame = async () => {
-        if (videoRef.current.paused || videoRef.current.ended) return;
-        await faceDetector.send({ image: videoRef.current });
-        requestAnimationFrame(processFrame);
-      };
-      processFrame();
     }
-  }, [inputSource]);
+
+    videoRef.current.requestVideoFrameCallback(processFrame);
+
+  }, []);
 
   return (
     <div className="app">
@@ -111,10 +58,13 @@ const App = () => {
         ref={videoRef}
         style={{ display: 'none' }}
         playsInline
-      ></video>
-      <Eye pointers={pointers} faces={faces} />
+      >
+      </video>
+      <div className="debug">
+        <p>tracking {faces.length} people</p>
+      </div>
+      <Eye faces={faces} />
       <Tracking faces={faces} videoRef={videoRef} />
-
       <Leva collapsed />
     </div>
   );
