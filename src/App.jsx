@@ -55,7 +55,7 @@ const App = () => {
           delegate: "GPU",
         },
         categoryAllowlist: ["person"],
-        scoreThreshold: 0.35,
+        scoreThreshold: 0.2,
         maxResults: 10,
         runningMode: "VIDEO",
       });
@@ -164,21 +164,33 @@ const App = () => {
       let newTarget = null;
 
       if (newPeople.length === 0) {
-        newTarget = null;
+        // 👇 reset to center when no one is visible
+        newTarget = {
+          id: "center",
+          x: 0.5,
+          y: 0.5,
+          distance: 0,
+          color: "rgba(255,0,0,0.5)",
+          score: 0,
+        };
+        bounceIndex.current = 0; // reset bounce cycle
       } else if (newPeople.length === 1) {
         newTarget = newPeople[0];
       } else {
-        // Sort by closeness (largest distance = closer to camera)
+        // Sort by closeness (largest distance = closest)
         const sorted = [...newPeople].sort((a, b) => b.distance - a.distance);
 
         const nowMs = performance.now();
-        if (nowMs - lastBounceTime.current > 1000) { // every 1 second
+        if (nowMs - lastBounceTime.current > 1000) {
           bounceIndex.current = (bounceIndex.current + 1) % sorted.length;
           lastBounceTime.current = nowMs;
         }
 
         newTarget = sorted[bounceIndex.current];
       }
+
+      setTarget(newTarget);
+
 
       setTarget(newTarget);
 
