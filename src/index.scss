@@ -13,6 +13,11 @@ $blue: #00aef1;
 .app {
  background: $red;
 
+ .hidden {
+    visibility: hidden;
+    opacity: 0;
+ }
+
  .foreground {
     position: absolute;
     width: 100%;
@@ -21,10 +26,16 @@ $blue: #00aef1;
     object-fit: cover;
   }
 
+  .video {
+    display: none;
+
+  }
   .canvas {
     position: absolute;
     bottom: 0;
-    left: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    // display: none;
     // width: 320px;
     // height: 240px;
   }

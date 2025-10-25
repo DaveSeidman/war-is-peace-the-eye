@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import Eye from "./components/Eye";
 import foregroundImage from "./assets/images/foreground.png";
-import { ObjectDetector, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.2";
+import {
+  ObjectDetector,
+  FilesetResolver,
+} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.2";
+import { useControls, Leva } from "leva";
 import "./index.scss";
 
 const App = () => {
@@ -20,6 +24,12 @@ const App = () => {
   const bounceIndex = useRef(0);
   const lastBounceTime = useRef(0);
 
+  const { flip, debug } = useControls({
+    flip: false,
+    debug: false,
+  });
+
+  // --- UTILITIES ---
   const randomColor = () => {
     const r = Math.floor(Math.random() * 205 + 50);
     const g = Math.floor(Math.random() * 205 + 50);
@@ -27,24 +37,48 @@ const App = () => {
     return `rgba(${r},${g},${b},0.9)`;
   };
 
-  const matchToPrevious = (cx, cy, prevList, maxDistance = 100) => {
+  // --- IOU-based matching ---
+  const iou = (a, b) => {
+    const x1 = Math.max(a.originX, b.originX);
+    const y1 = Math.max(a.originY, b.originY);
+    const x2 = Math.min(a.originX + a.width, b.originX + b.width);
+    const y2 = Math.min(a.originY + a.height, b.originY + b.height);
+    const inter = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
+    const union = a.width * a.height + b.width * b.height - inter;
+    return union > 0 ? inter / union : 0;
+  };
+
+  // Predict box position based on simple velocity
+  const predictBox = (p) => {
+    if (!p.box) return p.box;
+    return {
+      originX: p.box.originX + (p.vx ?? 0),
+      originY: p.box.originY + (p.vy ?? 0),
+      width: p.box.width,
+      height: p.box.height,
+    };
+  };
+
+  const matchToPrevious = (box, prevList, iouThreshold = 0.3) => {
     let best = null;
-    let bestDist = maxDistance;
+    let bestScore = iouThreshold;
     for (const p of prevList) {
-      const dist = Math.hypot(cx - p.x, cy - p.y);
-      if (dist < bestDist) {
+      if (!p.box) continue;
+      const predicted = predictBox(p);
+      const overlap = iou(box, predicted);
+      if (overlap > bestScore) {
         best = p;
-        bestDist = dist;
+        bestScore = overlap;
       }
     }
     return best ? best.id : null;
   };
 
+  // --- EFFECT ---
   useEffect(() => {
     let isActive = true;
 
     const init = async () => {
-      // ✅ Initialize MediaPipe
       const vision = await FilesetResolver.forVisionTasks(
         "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.2/wasm"
       );
@@ -71,9 +105,8 @@ const App = () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            width: { ideal: 640 },
-            height: { ideal: 360 },
-            facingMode: "user",
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
           },
         });
         streamRef.current = stream;
@@ -81,9 +114,11 @@ const App = () => {
         vid.srcObject = stream;
         vid.onloadedmetadata = () => {
           const canvas = canvasRef.current;
-          canvas.width = vid.videoWidth;
-          canvas.height = vid.videoHeight;
-          ctxRef.current = canvas.getContext("2d");
+          if (canvas) {
+            canvas.width = vid.videoWidth;
+            canvas.height = vid.videoHeight;
+            ctxRef.current = canvas.getContext("2d");
+          }
           vid.play();
           vid.requestVideoFrameCallback(processFrame);
         };
@@ -99,52 +134,87 @@ const App = () => {
 
       const result = await detectorRef.current.detectForVideo(vid, now);
       ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-      ctx.drawImage(vid, 0, 0, ctx.canvas.width, ctx.canvas.height);
+
+      // Flip image horizontally if enabled
+      if (flip) {
+        ctx.save();
+        ctx.translate(ctx.canvas.width / 2, ctx.canvas.height / 2);
+        ctx.rotate(Math.PI);
+        ctx.drawImage(
+          vid,
+          -ctx.canvas.width / 2,
+          -ctx.canvas.height / 2,
+          ctx.canvas.width,
+          ctx.canvas.height
+        );
+        ctx.restore();
+      } else {
+        ctx.drawImage(vid, 0, 0, ctx.canvas.width, ctx.canvas.height);
+      }
 
       const newPeople = [];
       const usedIds = new Set();
+      const nowMs = performance.now();
+
+      // Keep recently seen people (for smoother tracking)
+      prevPeople.current = prevPeople.current.filter(
+        (p) => nowMs - (lastSeen.current[p.id] ?? 0) < 1000
+      );
 
       if (result?.detections) {
         result.detections.forEach((d) => {
           const category = d.categories[0];
           if (!category) return;
-
           const box = d.boundingBox;
           const cx = box.originX + box.width / 2;
           const cy = box.originY + box.height / 2;
-          const distance = Math.min(1, Math.max(0, box.height / vid.videoHeight));
+          const distance = Math.min(
+            1,
+            Math.max(0, box.height / vid.videoHeight)
+          );
 
-          let id = matchToPrevious(cx, cy, prevPeople.current);
-          if (!id || usedIds.has(id)) id = `person_${crypto.randomUUID().slice(0, 8)}`;
+          // Match this detection to existing IDs
+          let id = matchToPrevious(box, prevPeople.current);
+          if (!id || usedIds.has(id))
+            id = `person_${crypto.randomUUID().slice(0, 8)}`;
           usedIds.add(id);
 
+          // Assign color persistently
           if (!colorMap.current[id]) colorMap.current[id] = randomColor();
           const color = colorMap.current[id];
 
-          // Bounding box
+          // Draw bounding box
           ctx.lineWidth = 3;
           ctx.strokeStyle = color;
           ctx.strokeRect(box.originX, box.originY, box.width, box.height);
 
-          // ID label
+          // Labels
           ctx.font = "16px sans-serif";
           ctx.textBaseline = "top";
           ctx.textAlign = "left";
           ctx.fillStyle = "white";
           ctx.fillText(id, box.originX + 4, box.originY - 18);
 
-          // Distance label
           ctx.font = "18px monospace";
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           ctx.fillStyle = color;
           ctx.fillText(distance.toFixed(2), cx, cy);
 
+          // Compute velocity if previous exists
+          const prev = prevPeople.current.find((p) => p.id === id);
+          const vx = prev ? cx - prev.cx : 0;
+          const vy = prev ? cy - prev.cy : 0;
+
           newPeople.push({
             id,
-            // normalized coordinates (0–1)
+            box,
             x: cx / vid.videoWidth,
             y: cy / vid.videoHeight,
+            cx,
+            cy,
+            vx,
+            vy,
             distance,
             color,
             score: category.score,
@@ -152,19 +222,24 @@ const App = () => {
         });
       }
 
+      // Debug: how many matched vs new
+      // console.log(
+      //   `Matched: ${newPeople.filter((p) =>
+      //     prevPeople.current.some((prev) => prev.id === p.id)
+      //   ).length
+      //   }, New: ${newPeople.filter(
+      //     (p) => !prevPeople.current.some((prev) => prev.id === p.id)
+      //   ).length
+      //   }`
+      // );
+
       setPeople(newPeople);
       prevPeople.current = newPeople;
+      newPeople.forEach((p) => (lastSeen.current[p.id] = nowMs));
 
-      const nowMs = performance.now();
-      newPeople.forEach((p) => {
-        lastSeen.current[p.id] = nowMs;
-      });
-
-      // Target selection logic (rotating between visible people)
+      // --- TARGET SELECTION ---
       let newTarget = null;
-
       if (newPeople.length === 0) {
-        // 👇 reset to center when no one is visible
         newTarget = {
           id: "center",
           x: 0.5,
@@ -173,30 +248,21 @@ const App = () => {
           color: "rgba(255,0,0,0.5)",
           score: 0,
         };
-        bounceIndex.current = 0; // reset bounce cycle
+        bounceIndex.current = 0;
       } else if (newPeople.length === 1) {
         newTarget = newPeople[0];
       } else {
-        // Sort by closeness (largest distance = closest)
         const sorted = [...newPeople].sort((a, b) => b.distance - a.distance);
-
-        const nowMs = performance.now();
         if (nowMs - lastBounceTime.current > 1000) {
           bounceIndex.current = (bounceIndex.current + 1) % sorted.length;
           lastBounceTime.current = nowMs;
         }
-
         newTarget = sorted[bounceIndex.current];
       }
 
       setTarget(newTarget);
 
-
-      setTarget(newTarget);
-
-      setTarget(newTarget);
-
-      // ✅ Draw large red circle on target
+      // Draw target marker
       if (newTarget && ctx) {
         const absX = newTarget.x * ctx.canvas.width;
         const absY = newTarget.y * ctx.canvas.height;
@@ -223,15 +289,16 @@ const App = () => {
     };
   }, []);
 
+  // --- RENDER ---
   return (
     <div className="app">
-      <video ref={videoRef} style={{ display: "none" }} playsInline></video>
-
+      <video className="video" ref={videoRef} playsInline muted />
       <div className="debug">
         <p>Detected {people.length} people</p>
         {people.map((p) => (
           <p key={p.id} style={{ color: p.color }}>
-            {p.label ?? "person"} ({Math.round(p.score * 100)}%) – dist: {p.distance.toFixed(2)}
+            {p.label ?? "person"} ({Math.round(p.score * 100)}%) – dist:{" "}
+            {p.distance.toFixed(2)}
           </p>
         ))}
         {target && (
@@ -240,10 +307,10 @@ const App = () => {
           </p>
         )}
       </div>
-
       <Eye faces={people} target={target} />
       <img className="foreground" src={foregroundImage} alt="overlay" />
-      <canvas className="canvas" ref={canvasRef}></canvas>
+      <canvas className={`canvas ${debug ? "" : "hidden"}`} ref={canvasRef} />
+      <Leva />
     </div>
   );
 };
