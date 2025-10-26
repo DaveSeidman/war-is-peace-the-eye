@@ -1,41 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
-import './index.scss';
+import React from "react";
+import "./index.scss";
 
-export default function Eye({ faces, target }) {
-  const [position, setPosition] = useState({ x: 50, y: 50 });
-  const faceIndex = useRef(0);
-  const faceTimer = useRef();
-  // const [people, setPeople] = useState([])
-
-  useEffect(() => {
-    if (faces.length <= 1) return;
-    // Cycle between faces if multiple
-    faceTimer.current = setInterval(() => {
-      faceIndex.current = (faceIndex.current + 1) % faces.length;
-    }, 1000);
-    return () => clearInterval(faceTimer.current);
-  }, [faces.length]);
-
-  useEffect(() => {
-    const update = () => {
-      let x = 50, y = 50;
-
-      if (faces.length === 1) {
-        x = faces[0].x * 100;
-        y = faces[0].y * 100;
-      } else if (faces.length > 1) {
-        const target = faces[faceIndex.current];
-        if (target) {
-          x = target.x * 100;
-          y = target.y * 100;
-        }
-      }
-
-      setPosition({ x, y });
-      requestAnimationFrame(update);
-    };
-    requestAnimationFrame(update);
-  }, [faces]);
+export default function Eye({ target, squint }) {
+  const x = target ? target.x * 100 : 50;
+  const y = target ? target.y * 100 : 50;
 
   return (
     <div className="eye">
@@ -44,11 +12,15 @@ export default function Eye({ faces, target }) {
         <div
           className="eye-pupil-inner"
           style={{
-            left: `${target?.x * 100}%`,
-            top: `${target?.y * 100}%`,
-            transform: `translate(-50%, -50%)`,
+            left: `${x}%`,
+            top: `${y}%`,
+            transform: "translate(-50%, -50%)",
           }}
         ></div>
+      </div>
+      <div className="eye-sides" style={{ transform: `scaleY(${squint})` }}>
+        <div className="eye-sides-side top" />
+        <div className="eye-sides-side bottom" />
       </div>
     </div>
   );

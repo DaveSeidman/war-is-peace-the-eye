@@ -2,14 +2,35 @@
 
 .eye {
   position: absolute;
-  aspect-ratio: 1;
+  width: 70vh;
   height: 70vh;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  background: url('../../assets/images/eye.svg');
   background-repeat: no-repeat;
   background-size: contain;
+
+  &-sides {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+
+    &-side {
+      position: absolute;
+      width: 1000px;
+      height: 2000px;
+      background-image: url('../../assets/images/eye-side.svg');
+      background-size: cover;
+
+      &.top {
+        transform: translate(-50%, -100%) scaleY(1);      // top: 50%;
+      }
+
+      &.bottom {
+          transform: translate(-50%, 0%) scaleY(-1);      // top: 50%;
+      }
+    }
+  }
 
   &-iris, &-pupil {
     position: absolute;

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import Eye from "./components/Eye";
-import foregroundImage from "./assets/images/foreground.png";
 import {
   ObjectDetector,
   FilesetResolver,
@@ -24,9 +23,10 @@ const App = () => {
   const bounceIndex = useRef(0);
   const lastBounceTime = useRef(0);
 
-  const { flip, debug } = useControls({
+  const { flip, debug, squint } = useControls({
     flip: false,
     debug: false,
+    squint: { min: 0.1, max: 1, value: 0.5 },
   });
 
   // --- UTILITIES ---
@@ -48,7 +48,6 @@ const App = () => {
     return union > 0 ? inter / union : 0;
   };
 
-  // Predict box position based on simple velocity
   const predictBox = (p) => {
     if (!p.box) return p.box;
     return {
@@ -79,35 +78,36 @@ const App = () => {
     let isActive = true;
 
     const init = async () => {
-      const vision = await FilesetResolver.forVisionTasks(
-        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.2/wasm"
-      );
-      const detector = await ObjectDetector.createFromOptions(vision, {
-        baseOptions: {
-          modelAssetPath:
-            "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float32/1/efficientdet_lite0.tflite",
-          delegate: "GPU",
-        },
-        categoryAllowlist: ["person"],
-        scoreThreshold: 0.2,
-        maxResults: 10,
-        runningMode: "VIDEO",
-      });
+      try {
+        const vision = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.2/wasm"
+        );
+        const detector = await ObjectDetector.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath:
+              "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float32/1/efficientdet_lite0.tflite",
+            delegate: "GPU",
+          },
+          categoryAllowlist: ["person"],
+          scoreThreshold: 0.2,
+          maxResults: 10,
+          runningMode: "VIDEO",
+        });
 
-      if (!isActive) return;
-      detectorRef.current = detector;
-      console.log("✅ Object detector initialized");
+        if (!isActive) return;
+        detectorRef.current = detector;
+        console.log("✅ Object detector initialized");
 
-      startCamera();
+        startCamera();
+      } catch (err) {
+        console.error("Detector init error:", err);
+      }
     };
 
     const startCamera = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
+          video: { width: { ideal: 1280 }, height: { ideal: 720 } },
         });
         streamRef.current = stream;
         const vid = videoRef.current;
@@ -135,7 +135,7 @@ const App = () => {
       const result = await detectorRef.current.detectForVideo(vid, now);
       ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-      // Flip image horizontally if enabled
+      // Flip horizontally if enabled
       if (flip) {
         ctx.save();
         ctx.translate(ctx.canvas.width / 2, ctx.canvas.height / 2);
@@ -156,7 +156,7 @@ const App = () => {
       const usedIds = new Set();
       const nowMs = performance.now();
 
-      // Keep recently seen people (for smoother tracking)
+      // Keep recent people for smoother tracking
       prevPeople.current = prevPeople.current.filter(
         (p) => nowMs - (lastSeen.current[p.id] ?? 0) < 1000
       );
@@ -173,35 +173,18 @@ const App = () => {
             Math.max(0, box.height / vid.videoHeight)
           );
 
-          // Match this detection to existing IDs
           let id = matchToPrevious(box, prevPeople.current);
           if (!id || usedIds.has(id))
             id = `person_${crypto.randomUUID().slice(0, 8)}`;
           usedIds.add(id);
 
-          // Assign color persistently
           if (!colorMap.current[id]) colorMap.current[id] = randomColor();
           const color = colorMap.current[id];
 
-          // Draw bounding box
           ctx.lineWidth = 3;
           ctx.strokeStyle = color;
           ctx.strokeRect(box.originX, box.originY, box.width, box.height);
 
-          // Labels
-          ctx.font = "16px sans-serif";
-          ctx.textBaseline = "top";
-          ctx.textAlign = "left";
-          ctx.fillStyle = "white";
-          ctx.fillText(id, box.originX + 4, box.originY - 18);
-
-          ctx.font = "18px monospace";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillStyle = color;
-          ctx.fillText(distance.toFixed(2), cx, cy);
-
-          // Compute velocity if previous exists
           const prev = prevPeople.current.find((p) => p.id === id);
           const vx = prev ? cx - prev.cx : 0;
           const vy = prev ? cy - prev.cy : 0;
@@ -222,22 +205,11 @@ const App = () => {
         });
       }
 
-      // Debug: how many matched vs new
-      // console.log(
-      //   `Matched: ${newPeople.filter((p) =>
-      //     prevPeople.current.some((prev) => prev.id === p.id)
-      //   ).length
-      //   }, New: ${newPeople.filter(
-      //     (p) => !prevPeople.current.some((prev) => prev.id === p.id)
-      //   ).length
-      //   }`
-      // );
-
       setPeople(newPeople);
       prevPeople.current = newPeople;
       newPeople.forEach((p) => (lastSeen.current[p.id] = nowMs));
 
-      // --- TARGET SELECTION ---
+      // --- Target selection ---
       let newTarget = null;
       if (newPeople.length === 0) {
         newTarget = {
@@ -281,15 +253,33 @@ const App = () => {
 
     init();
 
+    // --- CLEANUP (Option 1 fix) ---
     return () => {
+      console.log("🧹 Cleaning up MediaPipe + stream");
       isActive = false;
+
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+      }
+
+      const vid = videoRef.current;
+      if (vid) {
+        try {
+          vid.srcObject = null;
+          vid.pause();
+        } catch { }
+      }
+
+      if (detectorRef.current) {
+        try {
+          detectorRef.current.close && detectorRef.current.close();
+        } catch { }
+        detectorRef.current = null;
       }
     };
   }, []);
 
-  // --- RENDER ---
   return (
     <div className="app">
       <video className="video" ref={videoRef} playsInline muted />
@@ -307,8 +297,7 @@ const App = () => {
           </p>
         )}
       </div>
-      <Eye faces={people} target={target} />
-      <img className="foreground" src={foregroundImage} alt="overlay" />
+      <Eye target={target} squint={squint} />
       <canvas className={`canvas ${debug ? "" : "hidden"}`} ref={canvasRef} />
       <Leva />
     </div>
