@@ -26,37 +26,13 @@ html, body, #root, .app {
 
   .video {
     display: none;
-
   }
+  
   .canvas {
     position: absolute;
     bottom: 0;
     left: 0;
     width: 640px;
     height: 360px;
-    // width: 600px;
-  }
-
-  .debug {
-    font-family: monospace;
-    background: rgba(255, 255, 255, .75);
-    width: 440px;
-    height: calc(360px - 2rem);
-    font-size: 1.5rem;
-    padding: 1rem;
-    position: absolute;
-    bottom: 0;
-    left: 660px;
-    p {
-      margin: 0;
-
-      &.target:after {
-        content: ' 🎯';
-      }
-    }
-
-    h1 {
-      font-size: 1.5rem;
-    }
   }
 }
