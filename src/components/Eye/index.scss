@@ -2,13 +2,14 @@
 
 .eye {
   position: absolute;
-  width: 70vh;
-  height: 70vh;
+  width: 1000px;
+  height: 1000px;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
   background-repeat: no-repeat;
   background-size: contain;
+  background: white;
 
   &-sides {
     position: absolute;
@@ -21,13 +22,21 @@
       height: 2000px;
       background-image: url('../../assets/images/eye-side.svg');
       background-size: cover;
+      &:after {
+        content: '';
+        width: 100%;
+        height: 200%;
+        position: absolute;
+        bottom: 100%;
+        background: src.$red;
+      }
 
       &.top {
-        transform: translate(-50%, -100%) scaleY(1);      // top: 50%;
+        transform: translate(-50%, -100%) scaleY(1);
       }
 
       &.bottom {
-          transform: translate(-50%, 0%) scaleY(-1);      // top: 50%;
+          transform: translate(-50%, 0%) scaleY(-1);
       }
     }
   }
@@ -36,8 +45,8 @@
     position: absolute;
     top: 50%;
     left: 50%;
-    height: 42vh;
-    aspect-ratio: 1;
+    height: 620px;
+    width: 620px;
     background: src.$blue;
     transform: translate(-50%, -50%);
     border-radius: 50%;
@@ -47,23 +56,15 @@
   &-pupil {
     top: 50%;
     left: 50%;
-    width: 42vh;
-    height: 42vh;
-    // outline: 2px solid pink;
     background: none;
-    transition: transform .25s cubic-bezier(.4, 0, .2, 1);
     overflow: hidden;
 
     &-inner {
       position: absolute;
-      top: -11vh;
-      left: -11vh;
       background: black;
-      height: 22vh;
-      aspect-ratio: 1;
+      width: 310px;
+      height: 310px;
       border-radius: 50%;
-      // transform: translate(-50%, -50%);
-      transition: top .5s cubic-bezier(.1, .4, .2, 1), left .5s cubic-bezier(.1, .4, .2, 1);
     }
   }
 }
