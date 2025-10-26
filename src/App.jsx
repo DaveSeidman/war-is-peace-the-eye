@@ -1,10 +1,19 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Eye from "./components/Eye";
-import Debug from './components/debug';
+import Debug from "./components/debug";
 import { ObjectDetector, FilesetResolver } from "@mediapipe/tasks-vision";
-import { randomColor, matchToPrevious } from "./utils";
+import { matchToPrevious } from "./utils";
 import { useControls, Leva } from "leva";
 import "./index.scss";
+
+const COLORS = [
+  "#FF3B30", // Red
+  "#FF9500", // Orange
+  "#FFD60A", // Yellow
+  "#34C759", // Green
+  "#007AFF", // Blue
+  "#AF52DE", // Purple
+];
 
 const App = () => {
   const videoRef = useRef(null);
@@ -15,8 +24,10 @@ const App = () => {
 
   const [people, setPeople] = useState([]);
   const [target, setTarget] = useState(null);
+  const [showControls, setShowControls] = useState(true);
 
   const colorMap = useRef({});
+  const nextId = useRef(0);
   const prevPeople = useRef([]);
   const lastSeen = useRef({});
   const bounceIndex = useRef(0);
@@ -28,16 +39,26 @@ const App = () => {
     debug: false,
   });
 
-  const [showControls, setShowControls] = useState(true);
-
   const flipXRef = useRef(flipX);
   const flipYRef = useRef(flipY);
 
-  useEffect(() => { flipXRef.current = flipX }, [flipX]);
-  useEffect(() => { flipYRef.current = flipY }, [flipY]);
+  useEffect(() => {
+    flipXRef.current = flipX;
+  }, [flipX]);
+  useEffect(() => {
+    flipYRef.current = flipY;
+  }, [flipY]);
 
+  // Helper: generate padded incremental IDs
+  const getNextPersonId = () => {
+    const id = `person_${nextId.current.toString().padStart(4, "0")}`;
+    nextId.current += 1;
+    return id;
+  };
+
+  // --- Initialize MediaPipe Detector ---
   const initDetector = useCallback(async () => {
-    const vision = await FilesetResolver.forVisionTasks('mediapipe/models/');
+    const vision = await FilesetResolver.forVisionTasks("mediapipe/models/");
 
     return await ObjectDetector.createFromOptions(vision, {
       baseOptions: {
@@ -89,12 +110,9 @@ const App = () => {
       const flipH = flipXRef.current;
       const flipV = flipYRef.current;
 
-      // Draw video frame
+      // Draw mirrored video frame
       ctx.save();
-      ctx.translate(
-        flipH ? ctx.canvas.width : 0,
-        flipV ? ctx.canvas.height : 0
-      );
+      ctx.translate(flipH ? ctx.canvas.width : 0, flipV ? ctx.canvas.height : 0);
       ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
       ctx.drawImage(vid, 0, 0, ctx.canvas.width, ctx.canvas.height);
       ctx.restore();
@@ -109,16 +127,13 @@ const App = () => {
       );
 
       if (result?.detections) {
-        result.detections.forEach((d) => {
+        result.detections.forEach((d, i) => {
           const category = d.categories[0];
           if (!category) return;
           const box = d.boundingBox;
           const cx = box.originX + box.width / 2;
           const cy = box.originY + box.height / 2;
-          const distance = Math.min(
-            1,
-            Math.max(0, box.height / vid.videoHeight)
-          );
+          const distance = Math.min(1, Math.max(0, box.height / vid.videoHeight));
 
           // Flip coordinates for drawing if needed
           const flipCoord = (x, y) => ({
@@ -130,27 +145,30 @@ const App = () => {
             cy / vid.videoHeight
           );
 
+          // Match or assign new ID
           let id = matchToPrevious(box, prevPeople.current);
-          if (!id || usedIds.has(id))
-            id = `person_${crypto.randomUUID().slice(0, 8)}`;
+          if (!id || usedIds.has(id)) id = getNextPersonId();
           usedIds.add(id);
 
-          if (!colorMap.current[id]) colorMap.current[id] = randomColor();
+          // Assign one of six spectrum colors deterministically
+          if (!colorMap.current[id]) {
+            const colorIndex = nextId.current % COLORS.length;
+            colorMap.current[id] = COLORS[colorIndex];
+          }
           const color = colorMap.current[id];
 
-          ctx.lineWidth = 3;
+          // Draw bounding box
+          ctx.lineWidth = 10;
           ctx.strokeStyle = color;
-
-          // Mirror bounding boxes
           const drawX = flipH
             ? ctx.canvas.width - (box.originX + box.width)
             : box.originX;
           const drawY = flipV
             ? ctx.canvas.height - (box.originY + box.height)
             : box.originY;
-
           ctx.strokeRect(drawX, drawY, box.width, box.height);
 
+          // Track velocity
           const prev = prevPeople.current.find((p) => p.id === id);
           const vx = prev ? cx - prev.cx : 0;
           const vy = prev ? cy - prev.cy : 0;
@@ -200,7 +218,7 @@ const App = () => {
 
       setTarget(newTarget);
 
-      // --- Draw target ---
+      // --- Draw target indicator ---
       if (newTarget && ctx) {
         const absX = newTarget.x * ctx.canvas.width;
         const absY = newTarget.y * ctx.canvas.height;
@@ -228,14 +246,16 @@ const App = () => {
       if (!isActive) return;
       detectorRef.current = detector;
       console.log("✅ Object detector initialized");
-      await startCamera(() => videoRef.current.requestVideoFrameCallback(processFrame));
+      await startCamera(() =>
+        videoRef.current.requestVideoFrameCallback(processFrame)
+      );
     };
 
     start();
 
+    // Cleanup
     return () => {
       isActive = false;
-
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
@@ -263,15 +283,10 @@ const App = () => {
     <div className="app">
       <video className="video" ref={videoRef} playsInline muted />
       <Eye target={target} />
+      <div className="foreground"></div>
       <canvas className={`canvas ${debug ? "" : "hidden"}`} ref={canvasRef} />
-      <Debug
-        debug={debug}
-        people={people}
-        target={target}
-      ></Debug>
-      <Leva
-        hidden={!showControls}
-      />
+      <Debug debug={debug} people={people} target={target} />
+      <Leva hidden={!showControls} />
     </div>
   );
 };
