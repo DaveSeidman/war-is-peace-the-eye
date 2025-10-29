@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Eye from "./components/Eye";
+import Eye2 from './components/eye-three';
 import Debug from "./components/debug";
 import { ObjectDetector, FilesetResolver } from "@mediapipe/tasks-vision";
 import { matchToPrevious, COLORS } from "./utils";
@@ -14,7 +15,7 @@ const App = () => {
   const streamRef = useRef(null);
 
   const [people, setPeople] = useState([]);
-  const [target, setTarget] = useState(null);
+  const [target, setTarget] = useState({ x: .5, y: .5 });
   const [showControls, setShowControls] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
 
@@ -275,7 +276,8 @@ const App = () => {
   return (
     <div className="app">
       <video className="video" ref={videoRef} playsInline muted />
-      <Eye target={target} />
+      {/* <Eye target={target} /> */}
+      <Eye2 target={target} />
       <div className="foreground"></div>
       <canvas className={`canvas ${debug ? "" : "hidden"}`} ref={canvasRef} />
       <Debug debug={debug} people={people} target={target} />

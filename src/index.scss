@@ -1,4 +1,5 @@
 $red: #db241b;
+$darkred: #400d0a;
 $blue: #00aef1;
 
 html, body, #root, .app {
@@ -9,7 +10,7 @@ html, body, #root, .app {
 }
 
 .app {
-  background: $red;
+  background: $darkred;
 
   .hidden {
     visibility: hidden;
