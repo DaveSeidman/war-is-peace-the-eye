@@ -1,9 +1,4 @@
-export const randomColor = () => {
-  const r = Math.floor(Math.random() * 205 + 50);
-  const g = Math.floor(Math.random() * 205 + 50);
-  const b = Math.floor(Math.random() * 205 + 50);
-  return `rgba(${r},${g},${b},0.9)`;
-};
+export const COLORS = ["#FF3B30", "#FF9500", "#FFD60A", "#34C759", "#007AFF", "#AF52DE"];
 
 const iou = (a, b) => {
   const x1 = Math.max(a.originX, b.originX);

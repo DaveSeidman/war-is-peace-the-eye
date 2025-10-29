@@ -11,10 +11,16 @@ html, body, #root, .app {
 .app {
   background: $red;
 
- .hidden {
+  .hidden {
     visibility: hidden;
     opacity: 0;
- }
+  }
+
+  .fullscreen {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+  }
 
  .foreground {
     position: absolute;

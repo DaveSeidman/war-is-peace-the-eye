@@ -173,6 +173,7 @@ export default function Eye({ target }) {
         <div className="eye-sides-side top" />
         <div className="eye-sides-side bottom" />
       </div>
+      <div className="eye-gleam"></div>
     </div>
   );
 }

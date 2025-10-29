@@ -5,7 +5,7 @@ export default function Debug({ debug, people, target }) {
 
   return (
     <div className={`debug ${debug ? '' : 'hidden'}`}>
-      <h1>Detected {people.length} {people.length > 1 ? 'people' : 'person'}</h1>
+      <h1>Detected {people.length} {people.length === 1 ? 'person' : 'people'}</h1>
       {people.map((p) => (
         <p className={`debug-person ${p.id === target?.id ? 'target' : ''}`} key={p.id} style={{ color: p.color }}>
           {p.label ?? "person"} ({Math.round(p.score * 100)}%) – dist:{" "}
