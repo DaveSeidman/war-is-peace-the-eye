@@ -72,7 +72,7 @@ function EyeAssembly({ target }) {
       nextTrigger.current = timer.current + Math.random() * 5000 + 5000; // 5–10s next pulse
     }
 
-    zOffset.current += (targetZ.current - zOffset.current) * 0.5;
+    zOffset.current += (targetZ.current - zOffset.current) * 0.1;
 
     // when close to target, start returning forward
     if (Math.abs(targetZ.current - zOffset.current) < 0.02 && targetZ.current !== 0) {

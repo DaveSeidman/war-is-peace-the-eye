@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import Eye from './components/theeye';
+import Eye from './components/eye';
 import Debug from "./components/debug";
 import { ObjectDetector, FilesetResolver } from "@mediapipe/tasks-vision";
 import { matchToPrevious, COLORS } from "./utils";
