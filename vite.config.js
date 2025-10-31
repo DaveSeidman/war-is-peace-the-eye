@@ -8,5 +8,16 @@ export default defineConfig({
   server: {
     port: 8080,
     host: true,
+    allowedHosts: ['the-eye.ngrok.app']
+  },
+  css: {
+    preprocessorOptions: {
+      scss: {
+        // Suppress all Sass warnings from dependencies
+        quietDeps: true,
+        // (Optional) Suppress specific deprecation warnings
+        silenceDeprecations: ['legacy-js-api'],
+      },
+    },
   },
 });

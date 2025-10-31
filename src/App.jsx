@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import Eye from "./components/Eye";
-import Eye2 from './components/eye-three';
+import Eye from './components/eye';
 import Debug from "./components/debug";
 import { ObjectDetector, FilesetResolver } from "@mediapipe/tasks-vision";
 import { matchToPrevious, COLORS } from "./utils";
@@ -276,8 +275,7 @@ const App = () => {
   return (
     <div className="app">
       <video className="video" ref={videoRef} playsInline muted />
-      {/* <Eye target={target} /> */}
-      <Eye2 target={target} />
+      <Eye target={target} />
       <div className="foreground"></div>
       <canvas className={`canvas ${debug ? "" : "hidden"}`} ref={canvasRef} />
       <Debug debug={debug} people={people} target={target} />
