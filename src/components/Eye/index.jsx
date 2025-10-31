@@ -1,8 +1,9 @@
 import React, { useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Environment, useGLTF, Float, OrbitControls } from "@react-three/drei";
-import { Vector3, Quaternion } from "three";
-import { EffectComposer, Bloom, DepthOfField, Noise } from "@react-three/postprocessing";
+import { Vector3, Quaternion, CineonToneMapping, ReinhardToneMapping, ACESFilmicToneMapping } from "three";
+import * as THREE from 'three';
+import { EffectComposer, Bloom, DepthOfField, Noise, ToneMapping } from "@react-three/postprocessing";
 import fullEyeModel from "../../assets/models/eye.glb";
 
 const movementThreshold = { x: 0.02, y: 0.02 }; // only react to meaningful shifts
@@ -35,7 +36,7 @@ function EyeAssembly({ target }) {
     ) {
       const lookDir = new Vector3(
         (target.x - 0.5) * 2, // doubled movement range
-        -(target.y - 0.5) * 2,
+        -(target.y - 0.5) * .5,
         1
       ).normalize();
 
@@ -72,10 +73,19 @@ export default function Eye({ target }) {
     <Canvas
       dpr={1}
       camera={{ position: [0, 0, 3.5], fov: 40, near: 0.1, far: 6 }}
-      gl={{ antialias: true }}
+    // gl={{
+    //   antialias: true,
+    //   toneMapping: CineonToneMapping,
+    //   toneMappingExposure: 3, // <– boost or lower brightness
+    //   outputEncoding: THREE.sRGBEncoding, // correct gamma
+    // }}
+    // onCreated={({ gl }) => {
+    //   console.log({ gl })
+    //   gl.toneMappingExposure = 0.5; // tweak this live
+    // }}
     >
-      <ambientLight intensity={-1} />
-      <directionalLight position={[-2, 1, -2]} intensity={1.8} />
+      {/* <ambientLight intensity={-1} /> */}
+      {/* <directionalLight position={[2, 0, 2]} intensity={.1} /> */}
       <Float speed={2} rotationIntensity={1} floatIntensity={1}>
         <EyeAssembly target={target} />
       </Float>
@@ -83,16 +93,24 @@ export default function Eye({ target }) {
       <EffectComposer>
         <Bloom
           intensity={1.8}
-          luminanceThreshold={0.4}
+          luminanceThreshold={0.5}
           luminanceSmoothing={0.25}
         />
         <DepthOfField
-          worldFocusDistance={2.65}
-          focalLength={0.05}
+          worldFocusDistance={2.75}
+          focalLength={0.01}
           bokehScale={4}
-          resolutionScale={0.25}
+          // resolutionScale={0.25}
           resolutionX={512}
           resolutionY={512}
+        />
+        <ToneMapping
+          adaptive={true} // toggle adaptive luminance map usage
+          // resolution={256} // texture resolution of the luminance map
+          middleGrey={0.6} // middle grey factor
+          maxLuminance={2.0} // maximum luminance
+          averageLuminance={.15} // average luminance
+          adaptationRate={5.0} // luminance adaptation rate
         />
       </EffectComposer>
       <OrbitControls />
