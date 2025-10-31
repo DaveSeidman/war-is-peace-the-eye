@@ -72,20 +72,8 @@ export default function Eye({ target }) {
   return (
     <Canvas
       dpr={1}
-      camera={{ position: [0, 0, 3.5], fov: 40, near: 0.1, far: 6 }}
-    // gl={{
-    //   antialias: true,
-    //   toneMapping: CineonToneMapping,
-    //   toneMappingExposure: 3, // <– boost or lower brightness
-    //   outputEncoding: THREE.sRGBEncoding, // correct gamma
-    // }}
-    // onCreated={({ gl }) => {
-    //   console.log({ gl })
-    //   gl.toneMappingExposure = 0.5; // tweak this live
-    // }}
+      camera={{ position: [0, 0, 3], fov: 40, near: 0.1, far: 6 }}
     >
-      {/* <ambientLight intensity={-1} /> */}
-      {/* <directionalLight position={[2, 0, 2]} intensity={.1} /> */}
       <Float speed={2} rotationIntensity={1} floatIntensity={1}>
         <EyeAssembly target={target} />
       </Float>
@@ -97,7 +85,7 @@ export default function Eye({ target }) {
           luminanceSmoothing={0.25}
         />
         <DepthOfField
-          worldFocusDistance={2.75}
+          worldFocusDistance={2.25}
           focalLength={0.01}
           bokehScale={4}
           // resolutionScale={0.25}
