@@ -45,7 +45,7 @@ function EyeAssembly({ target }) {
     ) {
       const lookDir = new Vector3(
         (target.x - 0.5) * 2,
-        (target.y - 0.5) * 2 - .15,
+        (target.y - 0.5) * 2,
         1
       ).normalize();
 
